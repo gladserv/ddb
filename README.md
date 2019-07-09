@@ -5,13 +5,11 @@ independently on their location on the network.  It is also good for salvaging
 data from faulty devices.
 
 The concept of a device is rather more general than what is understood by the
-operating system or by utilities like
-
-dd in the sense that a device could mean a local device as known to the
-operating system, a remote device as known to a different operating system
-running on a remote system, a collection of devices joined together in some way,
-or finally a program running somewhere and communicating with ddb using the
-documented API.
+operating system or by utilities like dd in the sense that a device could mean a
+local device as known to the operating system, a remote device as known to a
+different operating system running on a remote system, a collection of devices
+joined together in some way, or finally a program running somewhere and
+communicating with ddb using the documented API.
 
 A device is identified by a type and a name; in some cases, the type can be
 omitted, and ddb guesses it (autodetection) although when using ddb from

@@ -1,0 +1,36 @@
+# this is to test configuration file reading; it does not
+# specify any useful device
+
+match ro =^type$ ^name([0-9]*)$ n=$1 m=r
+match rw =^type$ ^name([0-9]*)$ n=$1 m=w
+run prog$n arg
+load module$n
+open /dev/test$n$m
+open /dev/test$n type$m
+connect server 1234 name$n type
+call module$n function arg
+acall module$n function arg
+close cprog$n arg
+retry 5 42
+run rprog$n arg
+load rmodule$n
+open /dev/test$n type$m
+connect rserver 1234 name$1 type$0
+call rmodule$n function arg
+acall rmodule$n function arg
+close rcprog$n arg
+
+match excl =^xtype$ ^name([0-9]*)$ n=$1 m=e
+match nonexcl =^xtype$ ^name([0-9]*)$ n=$1 m=n
+match action =^xtype$ ^name([0-9]*)$ n=$1 m=a
+load module$n$m
+
+match any ?^type$ ^name-1$
+load m1
+
+match any !^type$ ^name-2$
+load m2
+
+match any - ^name-3$
+load m3
+

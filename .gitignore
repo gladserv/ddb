@@ -1,0 +1,13 @@
+.*.sw[po]
+*.o
+lib/libddb.so
+src/ddb
+src/ddb-daemon
+src/ddb-info
+src/ddb-sequence
+test/blocklist
+test/cfile
+test/image
+test/remote
+test/sequence
+test/tmp

@@ -1,0 +1,252 @@
+.TH DDB 5 "3 February 2018" "GLADSERV" "FILE FORMATS"
+.SH NAME
+ddb.conf \- configuration file for ddb
+.SH DESCRIPTION
+When the
+.B ddb
+program needs to open a device, it first looks up the name provided in
+configuration files, then if not found it asks the operating system to
+open a file or device using the name. The location of the configuration
+files is determined at compile time but it is normally all files ending
+in ".ddb" found in the following directories:
+.TP 0.5i
+$HOME/.ddb
+The user's own configuration
+.TP 0.5i
+$DDB_CONFIG
+If defined, this varialbe overrides the user's own configuration
+directory
+.TP 0.5i
+/etc/ddb
+The system-wide configuration provided by the system administrator
+.TP 0.5i
+$DDB_SYSCONFIG
+If defined, this varialbe overrides the system configuration directory
+.LP
+Additionally, command-line arguments to the program can override these
+paths and/or add new ones. All user configuration is searched first,
+then all system configuration; the search stop as soon as an entry matches.
+Files inside each directory are searched in lexycographic order as
+defined by
+.BR strmcp().
+.LP
+.SH SYNTAX
+Each configuration file is a sequence of device specifications
+with the following syntax:
+.LP
+.nf
+device   ::= match { match } [ info ] { prepare } { action } { close } [ retry ]
+match    ::= "match" mode type pattern { assign } \fInewline\fP
+mode     ::= "any" | "ro" | "rw" | "excl" | "nonexcl" | "action"
+type     ::= "-" | "=" pattern | "?" pattern | "!" pattern
+pattern  ::= \fIregular expression\fP
+assign   ::= variable "=" value
+variable ::= \fIalphanumeric string starting with a letter\fP
+value    ::= string
+string   ::= \fIstring, optionally quoted, with variable expansion\fP
+info     ::= block
+block    ::= "block" \fInumber\fP \fInewline\fP
+prepare  ::= load | run
+load     ::= "load" module \fInewline\fP
+module   ::= \fIpath to shared object\fP
+run      ::= "run" program { argument } \fInewline\fP
+program  ::= string
+argument ::= string
+close    ::= "close" program { argument } \fInewline\fP
+action   ::= open | connect | pipe | call | acall
+open     ::= "open" devname [ devtype ] \fInewline\fP
+devname  ::= string
+devtype  ::= string
+connect  ::= "connect" devname devtype|"-" address port \fInewline\fP
+pipe     ::= "pipe" devname devtype|"-" program { argument } \fInewline\fP
+call     ::= "call" module function { argument } \fInewline\fP
+acall    ::= "acall" module function { argument } \fInewline\fP
+function ::= \fIalphanumeric string starting with a letter\fP
+retry    ::= "retry" num_times delay \fInewline\fP { prepare } { action } { close }
+.fi
+.LP
+The meaning of such specification is that the type requested is compared
+against the \fItype\fP and the name requested against the \fImatch\fP
+\fIpattern\fP, and the first line which matches will cause this device
+entry to be used.  The \fIPmatch\fP \fBpattern\fP can contain capture groups
+and the substrings captured can be used in the \fBassign\fP to store the
+values, which will then be accessible using the syntax "$\fBvariable\fP"
+or "${\fBvariable\fP}". The \fItype\fP can contain a \fIpattern\fP, but
+capture groups there are ignored; a \fItype\fP of just "-" means that
+type must not be provided (no \fI\-t\fP or \fI\-T\fP option to
+.B ddb(1)
+was provided for example), a \fItype\fP of "=" followed by a \fIpattern\fP
+means that the type must be provided and match, "!" followed by a
+\fIpattern\fP means that the type must be provided but not match, and
+"?" followed by a \fIpattern\fP means that the type may or may not be
+provided, and if it was provided it must match.
+For example, the following \fBmatch\fP lines:
+.LP
+.nf
+match any ?^remote$ ^([^:/]*):(\d+)(/.*)$  host=$1 port=$2 path=$3
+match any ?^remote$ ^([^:/]*)(/.*)$  host=$1 port=1234 path=$2
+.fi
+.LP
+will match a device with a name like "server:59/dev/sda" with a type
+of "remote" (or the type can be omitted for autodetection), and assign
+the value "server" to variable "host", the value "59" to variable "port"
+and the value "/dev/sda" to "path"; the second line allows to omit the
+port and use a default value. The following \fBaction\fP makes use of
+this information:
+.LP
+.nf
+connect $host:$port $path
+.fi
+.LP
+.LP
+Another example could match a device specified as user@host:path
+and also match the access mode (to pass as a command-line parameter
+to a command):
+.LP
+.nf
+match ro ?^ssh$ ^([^@:]+)@([^:]+):(.*)$ user=$1 host=$2 path=$3 mode=-r
+match excl ?^ssh$ ^([^@:]+)@([^:]+):(.*)$ user=$1 host=$2 path=$3 mode=-x
+match rw ?^ssh$ ^([^@:]+)@([^:]+):(.*)$ user=$1 host=$2 path=$3 mode=-w
+.fi
+.LP
+The first match is used for read-only access and sets "mode" to "-r";
+the second match is used for exclusive access (file will be created and
+must not already exist) and the third match is for any read/write access
+except for the "exclusive" which was matched by the previous line; an
+example using these could be the following \fBprepare\fP:
+.LP
+.nf
+run ssh $user@$host some_program $mode $path
+.fi
+.LP
+If any \fBprepare\fP entries are provided, these are executed in sequence
+(a failure from any of them will result in a failure to open the device)
+and finally the \fBaction\fP entries are tried in sequence until one
+succeeds (this allows to provide a multiple path to the same device, in
+preference order).
+.LP
+If there is a fatal error during operation (for example, a network error)
+and there is a \fBretry\fP entry, it will be used to try reconnecting to
+the device, without having the program failing, up to \fBnum_times\fP
+consecutive times; the \fBdelay\fP specifies a time interval to wait before
+retrying.
+.PP
+.LP
+The \fBprepare\fP entriess are:
+.TP 0.5i
+load
+Loads a shared library and makes it available to any \fBcall\fP entries.
+The shared library needs to be in the \fBddb\fP module path (default
+on a "lib/ddb" directory relative to the installation directory;
+the environment variable \fBDDB_MODPATH\fP overrides this default).
+.TP 0.5i
+run
+Runs a program: this can, for example, make sure that
+.BR ddb-daemon(1)
+is running, before trying to connect to it.
+.LP
+The \fBaction\fP entriess are:
+.TP 0.5i
+open
+This opens a local file, same as calling \fBddb_device_open\fP(\fIdevname\fP,
+\fIdevtype\fP...), and if \fIdevtype\fP is not specified it will be NULL.
+.TP 0.5i
+connect
+This opens a TCP connection to the specified \fIhost\fP (default localhost)
+and \fIport\fP; it expects that
+.BR ddb-daemon(1)
+is listening for such connections; it will ask the remote end to open
+\fIdevname\fP with type \fIdevtype\fP and the same access mode as requested
+by the caller.
+.TP 0.5i
+pipe
+This runs a command and connects to its standard input and standard output;
+the program needs to use the same protocol as
+.BR ddb-daemon(1)
+and could be, for example something like \fBssh\fP \fIhost\fP \fBddb-daemon\fP
+\fIoptions\fP; the program needs to take the remote device name (and the type,
+if required) as part of the protocol exchange rather than on the command line.
+.TP 0.5i
+call
+This looks up a function in a shared library (which must have been loaded using
+the \fBload\fP entry) and runs it with the arguments specified.
+.TP 0.5i
+acall
+This is similar to \fBcall\fP but it is used when performing a device action;
+it needs to be a different funtion as the types are different.
+.PP
+.LP
+The \fIclose\fP entries are:
+.TP 0.0i
+close
+Run the specified program and arguments.
+.PP
+.LP
+.SH "EXAMPLE DDB CONFIGURATION FILE"
+To be written
+
+.SH FILES
+.TP 1.5i
+/etc/ddb
+Default system configuration directory
+.TP 1.5i
+PREFIX/lib/ddb
+Default module directory, relative to the installation prefix
+.TP 1.5i
+$HOME/.ddb
+Default user's configuration directory
+.LP
+.SH ENVIRONMENT
+.TP 1.5i
+DDB_CONFIG
+Override default user's configuration directory
+.TP 1.5i
+DDB_MODPATH
+Override default module path
+.TP 1.5i
+DDB_SYCONFIG
+Override default system configuration directory
+.TP 1.5i
+HOME
+Used to construct default user's configuration directory
+.PP
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-daemon (1),
+.BR ddb_device_open (3),
+.BR ddb-module (7),
+.BR ddb-remote (7)
+.SH "COPYRIGHT"
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

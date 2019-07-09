@@ -1,0 +1,107 @@
+.TH DDB_ACTION 3 "1 February 2018" "GLADSERV" "Device-specific action"
+.SH NAME
+ddb_action \- device-specific action
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <ddb.h>
+.sp
+.BI "int ddb_action(const char * " "name" ", const char * " "type" ,
+.BI "               const char * " "action" ", const char * " "aux_name" ,
+.BI "               const char * " "aux_type" " int " "freq" ,
+.BI "               void (* " "report" ")(const char *), void * " "arg" );
+.fi
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+The
+.BR ddb_action()
+function performs a special action on a device; these are actions
+which would not work on all devices, and may require opeing the
+device in a special way; the
+.I name
+argument indicates the device name, and the
+.I type
+argument the device type; these have the same values as provided to
+.BR ddb_device_open(3)
+except that
+.I type
+cannot be NULL (no autodetection). The
+.I action
+argument describes the action to be performed: see the documentation
+for a specific device to see what actions are supported, if any.
+Some action require a second device to be specified, and this can
+be provided as
+.I aux_name
+and
+.I aux_type
+.LP
+If
+.I report
+is not NULL and the action takes some time to run, it will be called
+every
+.I freq
+seconds with a progress report.
+.LP
+.SH "RETURN VALUE"
+The 
+.BR ddb_action()
+function returns 0 on success, -1 on error, in which case it sets
+.I errno
+to some appropriate value.
+.LP
+.SH ERRORS
+The
+.BR ddb_action()
+function can produce the same errors as the action actually
+performed, and additionally produce
+.TP 0.5i
+EINVAL
+The \fItype\fP argument is null or not recognised
+.TP 0.5i
+ENOENT
+The \fIaction\fP specified is not supported.
+.PP
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb_device_open (3),
+.BR ddb-intro (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

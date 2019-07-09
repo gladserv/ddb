@@ -1,0 +1,139 @@
+.TH DDB_PLUGIN 3 "16 February 2018" "GLADSERV" "Run as a ddb plugin"
+.SH NAME
+ddb_plugin_init, ddb_plugin_run, ddb_plugin_exit \- Run as a ddb plugin
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <ddb.h>
+.sp
+.BI "ddb_plugin_t * ddb_plugin_init(FILE * " "F_in" ", FILE * " "F_out" );
+.sp
+.BI "int ddb_plugin_run(ddb_plugin_t * " "pi" );
+.sp
+.BI "void ddb_plugin_exit(ddb_plugin_t * " "pi" );
+.fi
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+These functions permit to create a plugin for
+.BR ddb
+by taking care of all the internals of the communication.
+.LP
+The
+.BR ddb_plugin_init()
+function takes two files, the first one,
+.I F_in
+provides input from
+.BR ddb
+to the plugin. and the second one,
+.I F_out
+provides output from the plugin to
+.BR ddb.
+The function will receive an initial communication with information
+about a device type and name, and uses
+.BR ddb_device_open()
+to open it; this device is usually local to the system running the
+plugin, but this is not required. The caller may set up an
+environment in which the device actually opened could be anything
+at all by specifying special configuration directories.
+.LP
+The
+.BR ddb_plugin_run()
+receives a single device access request (corresponding to a call
+to one of the
+.BR ddb_device_*()
+functions) and processes it. The caller needs to call this
+repeatedly until it returns 0 to indicate that the other end
+has called
+.BR ddb_device_close()
+or a negative number to indicate a communication error.
+.LP
+The
+.BR ddb_plugin_exit()
+needs to be called at end of processing to deallocate
+any resources allocated by
+.BR ddb_plugin_init()
+and to close the device; this function does not close the files
+passed to that function, which are the responsibility of the caller.
+.LP
+.SH "RETURN VALUE"
+The 
+.BR ddb_plugin_init()
+function returns a pointer to an opaque structure on success,
+or NULL on error, setting
+.I errno
+to some appropriate value.
+.LP
+The
+.BR ddb_plugin_run()
+function returns zero to indicate end of processing, a positive
+value to indicate other success conditions, and a negative value
+on error, setting
+.I errno
+to an appropriate value.
+.LP
+.SH ERRORS
+These function can return any errors which can be produced as
+a result of network communications, as well as any errors which
+can be produced by accessing the device. In addition, the
+following errors can be returned:
+.TP 0.5i
+EINVAL
+Invalid data was received from the remote end.
+.TP 0.5i
+ENOSYS
+Some required operation is not supported by the device.
+.PP
+.LP
+.SH EXAMPLE
+The sources for the
+.BR ddb-daemon (1)
+program provide a short example of using these functions.
+.LP
+.SH NOTES
+These functions are not re-entrant and must not be called from
+signal handlers.
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-daemon (1),
+.BR ddb_device_open (3),
+.BR ddb-intro (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

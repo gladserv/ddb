@@ -1,0 +1,96 @@
+.TH DDB-REMOTE 7 "17 February 2018" "GLADSERV" "Devices"
+.SH NAME
+ddb\-remote \- remote device
+.SH DESCRIPTION
+A \fBremote\fP device is an external program which provides all the
+functionality which \fBddb\fP expects to find in a device; this
+provides a way to add new device types.
+.LP
+The program can listen on a TCP port for connections, or it can be
+launched by \fBddb\fP when required; the protocol is identical, the
+only difference is the transport: a network connection or a pipe
+to the program's standard input and standard output.
+.LP
+To use a \fBremote\fP device it is necessary to have a configuration file
+describing how to use it: this is done via the "connect" and "pipe" actions;
+in either case, the configuration specifies the "real" device name and
+type to be used. For example, the following configuration:
+.LP
+.nf
+match any =^tcp$ ^([^:]*):([^:]*):(.*)$ host=$1 port=$2 name=$3
+connect $host $port $name
+.sp
+match any =^ssh$ ^([^:]*):([^:]*):(.*)$ host=$1 port=$2 name=$3
+pipe $name - ssh -p $port $host ddb-daemon
+.fi
+.LP
+Opening the device with type "tcp" and name "remote:1234:/path"
+will result in connecting to host "remote" port 1234 and requesting
+access to device "/path" with type autodetection (type was not
+specified in the configuration, and "tcp" is used to look up the
+configuration only).
+.LP
+Opening the device with type "ssh" and name "remote:1234:/path"
+will result in running the command:
+.LP
+.nf
+ssh -p 1234 remote ddb-daemon
+.fi
+.LP
+And requesting the same device "/path" with type autodetection.
+.LP
+See
+.BR ddb (5)
+for full details on specifying configuration.
+.LP
+.SH PROTOCOL
+The protocol used to communicate to a remote device is independent
+on the actual transport (network, pipe) and the way it has been set
+up. This is currently undocumented.
+.LP
+.SH "HELPER LIBRARY"
+See
+.BR ddb_plugin_init (3)
+for a library which can be used to write a "remote" device.
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-daemon (1),
+.BR ddb_plugin_init (3),
+.BR ddb (5)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

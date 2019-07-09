@@ -1,0 +1,253 @@
+.TH DDB_DEVICE_INFO 3 "3 February 2018" "GLADSERV" "Device information"
+.SH NAME
+ddb_device_info, ddb_device_blocks \- distributed device backup device information
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <ddb.h>
+.sp
+.BI "void ddb_device_info(ddb_device_t * " "dev" ", ddb_device_info_t * " "info" );
+.sp
+.BI "int ddb_device_info_print(ddb_device_t * " "dev" ", int " "level" ,
+.BI "                          int (*" "func" ")(int, const char *, void *),
+.BI "                          void * " "arg" ", int " "verbose" );
+.sp
+.BI "int ddb_device_has_block(ddb_device_t * " "dev" ", off_t " "block" );
+.sp
+.BI "ddb_blocklist_t * ddb_device_has_blocks(ddb_device_t * " "dev" ,
+.BI "                          const ddb_blocklist_t * " "blocks" );
+.sp
+.BI "ddb_blocklist_t * ddb_device_blocks(ddb_device_t * " "dev" );
+.sp
+.BI "ddb_blocklist_t * ddb_device_copy_blocks(ddb_device_t * " "dev" );
+.sp
+.BI "int ddb_device_block_iterate(ddb_device_t * " "dev" ",
+.BI "                          int (*" "func" ")(off_t, off_t, void *),
+.BI "                          void * " "arg" );
+.fi
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+The
+.BR ddb_device_info()
+function fills the
+.I info
+argument with information about the device
+.I dev.
+The
+.I ddb_device_info_t
+structure contains at least the following fields:
+.LP
+.nf
+typedef struct ddb_device_info_s {
+    const char    * name;
+    int           flags; /* same as open() etc */
+    size_t        block_size;
+    off_t         num_blocks;
+    off_t         total_size;
+    off_t         blocks_present;
+    time_t        mtime;
+    int           multi_device;
+    ddb_device_t  **devs;
+} ddb_device_info_t;
+.fi
+.LP
+The \fIblock_size\fP, \fInum_blocks\fP and \fItotal_size\fP fields describe
+the device's size and blocks;
+the \fImtime\fP field contains the time of data change, although this information
+could be inaccurate for some devices (in particular, block devices do not provide
+this information; however devices such as incremental image backups always
+provide a valid timestamp in this field);
+the \fImulti_device\fP argument is zero for
+a simple device, for a device "containing" other devices it is the number of
+such "inner" devices in which case the list of devices will be stored in
+\fIdevs\fP, which points to a per-device static buffer. See
+.BR ddb-intro (7)
+for information about devices.
+.LP
+The
+.BR ddb_device_info_print()
+function produces a printable description of a device and its sub-devices
+by calling \fIfunc\fP repeatedly; each call will correspond to a line of
+output, and will be called as:
+.LP
+.nf
+.BI "    func(" "level" ", " "line" ", " "arg");
+.fi
+.LP
+Where \fIlevel\fP is initially the value provided as argument to
+.BR ddb_device_info_print()
+but is increased when providing information about sub-devices; the function
+can use this value to indent the output, for example; the \fIarg\fP argument
+is always the value passed by the caller, and \fIline\fP is the next line in
+the printable description. The return value from \fIfunc\fP is expected to be
+nonnegative; a negative return aborts the processing. The \fIverbose\fP
+argument controls the level of details provided.
+.LP
+The
+.BR ddb_device_has_block()
+function determines whether the block number \fIblock\fP is present in the
+device \fIdev\fP; for block devices and raw images this is always true as
+long as the block is not past the physical end of the device; for other types
+of devices, a block may be absent, for example in an incremental backup image
+most blocks would be absent, meaning that a previous backup has them.
+.LP
+The
+.BR ddb_device_has_blocks()
+function is equivalent to calling
+.BR ddb_device_has_block()
+once for each element of
+.I blocks
+and producing a list of all blocks present in the device; this function could
+be more efficient than a number of calls to
+.BR ddb_device_has_block()
+for some types of devices. The caller is responsible for freeing the result
+using
+.BR ddb_blocklist_free().
+.LP
+The
+.BR ddb_device_blocks()
+function produces a block list with all the blocks present in the device.
+The caller is responsible for freeing the result using
+.BR ddb_blocklist_free().
+.LP
+The
+.BR ddb_device_copy_blocks()
+function returns the blocks which must be copied from the device; for most
+devices, this is all blocks it could store, whether actually present or not,
+as missing blocks need to be copied as zeros; however for some devices
+this could be a different list; for example, when reading a LVM snapshot
+to determine what blocks have changed, the
+.BR ddb_device_copy_blocks()
+function returns the same list as
+.BR ddb_device_blocks()
+to indicate that only the blocks in the snapshot need to be copied.
+.LP
+The
+.BR ddb_device_block_iterate()
+calls \fIfunc\fP for each range of consecutive blocks present in the device:
+.LP
+.nf
+.BI "    func(" "start" ", " "end" ", " "arg");
+.fi
+.LP
+Indicating that the blocks numbered from \fIstart\fP to \fIend\fP inclusive
+are present; for a device which contains "all blocks" this would be a single
+call:
+.LP
+.nf
+    \fBfunc(\fP0, \fInum_blocks\fP - 1, \fIarg\fP);
+.fi
+.LP
+The \fIarg\fP argument is as provided by the caller.  The function \fIfunc\fP
+is expected to be nonnegative; a negative return aborts the processing.
+.LP
+.SH "RETURN VALUE"
+The 
+.BR ddb_device_info(),
+function doesn't return any value, but fills the
+.I info
+argument.
+.LP
+The
+.BR ddb_device_info_print()
+and
+.BR ddb_device_block_iterate()
+functions return 0 on success; if the processing is aborted because \fIfunc\fP
+returned a negative value, this value is returned.
+.LP
+The
+.BR ddb_device_has_block()
+function returns 1 if the device has the block, 0 if it does not have it, and
+-1 if there was an error determining this information, in which case it sets
+.I errno
+.LP
+The
+.BR ddb_device_has_blocks()
+function returns the sublist of
+.I blocks
+containing all blocks present in the device, or NULL on error, in which
+case it sets
+.I errno
+.LP
+The
+.BR ddb_device_blocks()
+and
+.BR ddb_device_copy_blocks()
+functions return a list on success, or NULL on error, in which case they set
+.I errno
+as appropriate.
+.SH ERRORS
+The
+.BR ddb_device_has_block()
+functions can produce any of the errors produced by
+.BR read(2)
+and, for some devices, any of the errors produced by
+.BR send(2)
+and
+.BR recv(2)
+.LP
+The
+.BR ddb_device_has_blocks()
+function can produce all the errors produced by
+.BR ddb_device_has_block()
+as well as
+.BR ddb_blocklist_new (3)
+and
+.BR ddb_blocklist_add (3)
+.LP
+The
+.BR ddb_device_blocks()
+and
+.BR ddb_device_copy_blocks()
+function can produce any of the errors produced by
+.BR ddb_blocklist_new (3)
+and
+.BR ddb_blocklist_add (3)
+and additionally any errors which can result from accessing the device
+to determine which blocks are present.
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-intro (3),
+.BR ddb_device_open (3),
+.BR ddb_blocklist_new (3),
+.BR ddb-intro (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

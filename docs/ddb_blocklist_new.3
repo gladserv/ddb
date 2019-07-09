@@ -1,0 +1,236 @@
+.TH DDB_BLOCKLIST 3 "3 February 2018" "GLADSERV" "Blobk lists"
+.SH NAME
+ddb_blocklist_new, ddb_blocklist_add, ddb_blocklist_sub, ddb_blocklist_union, ddb_blocklist_intersect, ddb_blocklist_count, ddb_blocklist_has, ddb_blocklist_iterate, ddb_blocklist_free \- operations on lists of blocks
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <ddb.h>
+.sp
+.BI "ddb_blocklist_t * ddb_blocklist_new(void);"
+.sp
+.BI "ddb_blocklist_t * ddb_blocklist_load(FILE * " "F" );
+.sp
+.BI "ddb_blocklist_t * ddb_blocklist_read(FILE * " "F" );
+.sp
+.BI "int ddb_blocklist_add(ddb_blocklist_t * " "ls" ,
+.BI "                      off_t " "start" ", off_t " "end" );
+.sp
+.BI "ddb_blocklist_t * ddb_blocklist_sub(const ddb_blocklist_t * " "ls" ,
+.BI "                      off_t " "start" ", off_t " "end" );
+.sp
+.BI "ddb_blocklist_t * ddb_blocklist_union(int " "nls" ,
+.BI "                      const ddb_blocklist_t * " "ls" "[" "nls" "] );
+.sp
+.BI "ddb_blocklist_t * ddb_blocklist_intersect(int " "nls" ,
+.BI "                      const ddb_blocklist_t * " "ls" "[" "nls" "] );
+.sp
+.BI "int ddb_blocklist_save(const ddb_blocklist_t * " "ls" ", FILE * " "F" );
+.sp
+.BI "int ddb_blocklist_print(const ddb_blocklist_t * " "ls" ", FILE * " "F" );
+.sp
+.BI "off_t ddb_blocklist_count(const ddb_blocklist_t * " "ls" );
+.sp
+.BI "int ddb_blocklist_has(const ddb_blocklist_t * " "ls" ",
+.BI "                      off_t " "block" );
+.sp
+.BI "int ddb_blocklist_iterate(const ddb_blocklist_t * " "ls" ,
+.BI "                      int (*" "func" ")(off_t, off_t, void *),
+.BI "                      void * " "arg" );
+.sp
+.BI "void ddb_blocklist_free(ddb_blocklist_t * " "ls" );
+.fi
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+These function manages lists of blocks for
+.B ddb.
+These lists can be considered as ordered sequences of integers large
+enough to hold block numbers. The implementation may use different
+optimisation techniques depending on the actual contents of the list.
+.LP
+.BR ddb_blocklist_new ()
+creates a new empty list.
+.LP
+.BR ddb_blocklist_load ()
+reads a blocklist from a file and returns it; the file position must be
+at the start of the list when calling the function, and it will be
+moved to just after the end of the list; the function expects to find
+the binary format produced by
+.BR ddb_blocklist_save ()
+.LP
+.BR ddb_blocklist_read ()
+reads a blocklist from a file and returns it; the file position must be
+at the start of the list when calling the function, and it will be left
+at end of file; the function expects to find the text format produced by
+.BR ddb_blocklist_print ()
+.LP
+.BR ddb_blocklist_add ()
+adds a range of blocks to the list, including both \fIstart\fP and \fIend\fP
+and all blocks in between.
+.LP
+.BR ddb_blocklist_sub ()
+creates a new list containing all the blocks in the original list which are
+between \fIstart\fP and \fIend\fP (inclusive).
+.LP
+.BR ddb_blocklist_union ()
+creates a new list containing all blocks which are contained in at least
+one of the lists passed as arguments.
+.LP
+.BR ddb_blocklist_intersect ()
+creates a new list containing all blocks which are contained in each
+one of the lists passed as arguments.
+.LP
+.BR ddb_blocklist_save ()
+and
+.BR ddb_blocklist_print ()
+write a blocklist to a file and the file position must be where the
+blocklist needs to go when calling the function, and it will be
+moved to just after the end of the list; the difference is that
+.BR ddb_blocklist_save ()
+uses a binary format, while
+.BR ddb_blocklist_print ()
+uses a text format.
+.LP
+.BR ddb_blocklist_count ()
+counts the total number of blocks in a list (for example, if one has called
+.BR ddb_blocklist_add()
+once on a new list, the number of blocks will be \fIend\fP-\fIstart\fP+1).
+.LP
+.BR ddb_blocklist_has ()
+checks if a list contain a particular block, and returns 1 if it does,
+0 if it does not.
+.LP
+The
+.BR ddb_blocklist_iterate()
+calls \fIfunc\fP for each range of consecutive blocks present in the list:
+.LP
+.nf
+.BI "    func(" "start" ", " "end" ", " "arg");
+.fi
+.LP
+Indicating that the blocks numbered from \fIstart\fP to \fIend\fP inclusive
+are present; for a list which contains "all blocks" this would be a single
+call:
+.LP
+.nf
+    \fBfunc(\fP0, \fIlast_block\fP, \fIarg\fP);
+.fi
+.LP
+The \fIarg\fP argument is as provided by the caller.  The function \fIfunc\fP
+is expected to be nonnegative; a negative return aborts the processing.
+.LP
+The
+.BR ddb_blocklist_free()
+deallocates all resources which have been allocated for the list; the caller
+must not use the list after this call.
+.LP
+.SH "RETURN VALUE"
+The
+.BR ddb_blocklist_new(),
+.BR ddb_blocklist_load(),
+.BR ddb_blocklist_read(),
+.BR ddb_blocklist_sub(),
+.BR ddb_blocklist_union()
+and
+.BR ddb_blocklist_intersect()
+functions return a pointer to a new blocklist on success, or NULL on error,
+in which case they set
+.I errno
+to an approppriate value.
+.LP
+The
+.BR ddb_blocklist_add(),
+.BR ddb_blocklist_save()
+and
+.BR ddb_blocklist_print()
+functions return 0 on success and -1 on error, setting
+.I errno
+to an appropriate value.
+.LP
+The
+.BR ddb_blocklist_count()
+returns the total number of blocks in the list.
+.LP
+.BR ddb_blocklist_has()
+returns 1 if the list contains the block specified, 0 if it doesn't.
+.LP
+The
+.BR ddb_blocklist_iterate()
+functions return 0 on success; if the processing is aborted because \fIfunc\fP
+returned a negative value, this value is returned.
+.LP
+The
+.BR ddb_blocklist_free()
+does not return a value.
+.SH ERRORS
+The functions
+.BR ddb_blocklist_new(),
+.BR ddb_blocklist_add(),
+.BR ddb_blocklist_sub(),
+.BR ddb_blocklist_union()
+and
+.BR ddb_blocklist_intersect()
+can return any of the errors returned by
+.BR malloc(3).
+.LP
+The functions
+.BR ddb_blocklist_load()
+and
+.BR ddb_blocklist_read()
+can return any of the errors returned by
+.BR malloc (3)
+in addition to any of the errors returned by
+.BR fread (3).
+.LP
+The functions
+.BR ddb_blocklist_save()
+and
+.BR ddb_blocklist_print()
+can return any of the errors returned by
+.BR fwrite (3).
+.LP
+The function
+.BR ddb_blocklist_iterate()
+can return any of the errors returned by \fIfunc\fP.
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-intro (3)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

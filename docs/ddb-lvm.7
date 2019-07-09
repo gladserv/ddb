@@ -1,0 +1,94 @@
+.TH DDB-LVM 7 "3 February 2018" "GLADSERV" "Devices"
+.SH NAME
+ddb\-lvm \- device access to LVM volumes
+.SH DESCRIPTION
+A \fBddb\-lvm\fP device is an interface to access LVM devices from \fBddb\fP.
+The only difference between using this device type and direct access to the
+block device is the ability to automatically take a snapshot before reading
+a device, and to delete the snapshot after the copy; it is also possible to
+automatically create a new volume of the correct size.
+.LP
+To use this type of device, use the syntax
+.LP
+.EX
+    \fIvolume_group\fP/\fIvolume_name\fP
+.EE
+.LP
+to \fBddb\fP, optionally specifying a type "lvm" if autodetection fails,
+or to make sure to use LVM (when running \fBddb\fP from a script, it is
+recommended to always specify a type).
+.LP
+When using this type of device as a source, it is also possible to automatically
+take a snapshot, copy the data from the snapshot, and then remove the snapshot
+at the end; to do this, use the syntax
+.LP
+.EX
+    \fIvolume_group\fP/\fIvolume_name\fP:\fIsnapshot_size\fP
+.EE
+.LP
+where \fIsnapshot_size\fP is a number followed by a unit ("M" for megabytes,
+"G" for gigabytes, etc). Note that it is currently not possible to resume
+a copy if a snapshot was created, as the snapshot will be deleted if the
+copy stops. This will be addressed in a future version.
+.LP
+When using this device as a destination, the program can create a new volume
+the same size of the source; to do this, specify a type \fIlvm\fP and
+a valid \fIvolume_group\fP but use a \fIvolume_name\fP which does not yet
+exist; the \fI\-x\fP option to \fBddb\fP will require to create a new volume
+and will stop with an error if overwriting an existing one.
+.LP
+The
+.BR ddb-info (1)
+program provides generic information on any
+.I device
+known to
+.B ddb
+and will show the name of the snapshot (if one was created) in addition
+to generic device information.
+.LP
+.SH ACTIONS
+A LVM volume is just like a normal device and does not currently support
+any actions using
+.BR ddb_action (3)
+however a future version will provide actions to manage snapshots.
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-info (1),
+.BR ddb_action (3)
+.BR ddb-intro (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

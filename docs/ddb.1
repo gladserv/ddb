@@ -1,0 +1,392 @@
+.TH DDB 1 "17 February 2018" "GLADSERV" "LOCAL USER COMMANDS"
+.SH NAME
+ddb \- distributed device backup
+.SH SYNOPSIS
+.EX
+\fBddb\fP [options]... \fISOURCE\fP [\fIDESTINATION\fP]
+.EE
+.SH DESCRIPTION
+The purpose of the
+.B ddb
+utility is to copy data between block devices, or between entities
+which look like block devices; it is similar
+.BR dd (1)
+command with some important differences which make it more suitable for
+use in distributed backup situations; it also works well in emergency
+rescue situations in which the source device may be damaged.
+.LP
+One difference between \fBdd\fP abd \fBddb\fP is that
+if a block cannot be read,
+.B dd
+will offer the choice to stop the copy or replace the block with zeros,
+while
+.B ddb
+will keep trying until the hardware manages to correct the error or too
+may retries are reached; and even in this case, re-running
+.B ddb
+will continue trying to recover the missing blocks. In a distributed
+setup, a copy error can be the result of network issues, so it is
+always necessary to retry operations which failed.
+.LP
+Another important difference between
+.B dd
+and
+.B ddb
+is that
+.B ddb
+will not write to
+.I DESTINATION
+unless it needs to. This means that if
+.I DESTINATION
+is a file it will be a "sparse" file, in which blocks containing only
+zeroes are not allocated. The result will work exactly the same as a
+normal file, but use less space. Also, if
+.I DESTINATION
+is a solid state disk or other medium allowing a limited number of writes,
+.B ddb
+will cause as little wear and tear as possible, and running
+.B ddb
+several times will result in no additional wear and tear.
+.LP
+Finally, \fBddb\fP extends the concept of a "device" to include direct
+access to remote and emulated devices, and allows the use of plugins
+to extend the concept of "device" further. One important example of
+a "device" which isn't a traditional block device or an image file is
+the "sequence" which contains a full copy of a device and any number
+of incremental copies; one could use this type of device as the
+destination for a backup, and if a restore is required this can be
+done using any of the previous versions present in the sequence. See
+.BR ddb-sequence (7)
+and
+.BR ddb-sequence (1)
+.LP
+The \fIDESTINATION\fP can be omitted from the command line; in
+this case, the program reads the \fISOURCE\fP and checks that it
+is completely readable, but of course no actual copy is performed.
+.LP
+.SH OPTIONS
+Normally, just running the program without any special options:
+.LP
+.EX
+\fBddb\fP \fISOURCE\fP \fIDESTINATION\fP
+.EE
+.LP
+will select reasonable defaults and copy the data. A file in a configuration
+directory will specify any special handling required by \fISOURCE\fP
+and/or \fIDESTINATION\fP, as described in
+.BR ddb (5)
+however a number of options control how the program runs if it is
+desired to change the defaults.
+.LP
+.TP 0.5i
+.B \-b \fIBLOCK_SIZE\fP
+The copy reads a number of blocks, of size \fIBLOCK_SIZE\fP bytes each,
+from \fISOURCE\fP, then checks which of these need to be written to
+\fIDESTINATION\fP and writes them. This option changes the default
+\fIBLOCK_SIZE\fP. For best results, this needs to be a multiple of
+the internal block size of both \fISOURCE\fP and \fIDESTINATION\fP,
+and some types of device will only work with some block sizes. The
+default is 4096.
+.TP 0.5i
+.B \-c [\fIINTERVAL\fP:]\fIFILE\fP
+The program will write its internal state to \fIFILE\fP every
+\fIINTERVAL\fP seconds (default 60). If this file exists when
+the program starts, and it contains a valid state for the copy,
+the program will automatically resume from that state rather
+than running the full copy (if the file exists, but it is not
+a valid state the program will refuse to run, to avoid overwriting
+something which isn't a state file). If this file does not exist
+when the program starts, it will create one.
+.TP 0.5i
+.B \-C
+Do not use checksums to determine whether two blocks are identical;
+checksums can save time when one or both of \fISOURCE\fP or
+\fIDESTINATION\fP are remote because they use a lot less network
+bandwidth than the full data; they are automatically disabled if
+both devices are local.
+.TP 0.5i
+.B \-f \fIFILE\fP
+At end of processing, writes to \fIFILE\fP the list of blocks which
+have been successfully copied to the \fIDESTINATION\fP or which the program
+determined did not need to be copied.  The file format is the same as the
+one used by
+.B \-i
+and
+.B \-o.
+If there is no
+.I DESTINATION
+this file records which blocks can be read from the \fISOURCE\fP.
+.TP 0.5i
+.B \-F \fIINTERVAL\fP
+Flushes pending writes to \fIDESTINATION\fP every \fIINTERVAL\fP
+seconds; if \fIINTERVAL\fP is zero, disables this; default is 120
+seconds
+.TP 0.5i
+.B \-h
+Print an usage message with some of the information in this manual page;
+then exit the program.
+.TP 0.5i
+.B \-i \fIFILE\fP
+Reads the list of blocks to copy from \fIFILE\fP which normally
+has been produced using
+.B \-o.
+.TP 0.5i
+.B \-k \fIDIRECTORY\fP
+Replaces the default user configuration directory with \fIDIRECTORY\fP;
+if this option is repeated, the program will search all the directories
+specified (but not the default, which can be added again if desired
+by specifying this option one more time). If the \fIDIRECTORY\fP is not
+absolute it will be relative to $HOME. To completely remove the user
+configuration directories specify a single \fB\-k\-\fP.
+.TP 0.5i
+.B \-K \fIDIRECTORY\fP
+Replaces the default system configuration directory with \fIDIRECTORY\fP;
+if this option is repeated, the program will search all the directories
+specified (but not the default, which can be added again if desired
+by specifying this option one more time). To completely remove the
+system configuration directories specify a single \fB\-K\-\fP.
+.TP 0.5i
+.B \-l
+Print the program's licence on standard output and exit.
+.TP 0.5i
+.B \-n
+Do not make any changes to
+.I DESTINATION
+but just report if it differs from \fISOURCE\fP.  This switch implies
+.BR \-p\fI1\fP
+(see below).
+.TP 0.5i
+.B \-o \fIFILE\fP
+Writes the list of blocks which could not be recovered to \fIFILE\fP.
+This can be used in various ways, as described in the examples.
+.TP 0.5i
+.B \-O
+If \fB\-o\fP is specified, write this file at the end of every pass instead
+of just at the end of the last pass.
+.TP 0.5i
+.B \-q
+Quiet mode: only produce error messages and some summaries. Without this
+option the program produces a progress report every few seconds.
+.TP 0.5i
+.B \-p \fIMAX_PASS\fP
+Determine the maximum number of "passes" (retries after the copy
+encouters some read errors). The default is 10. The program will
+first copy
+.I SOURCE
+to
+.I DESTINATION
+skipping any blocks containing uncorrectable errors, but keeping a list
+of such blocks in memory (and the state file, if \fB\-c\fP is specified).
+This is the first pass. If the number of passes is greater than 1,
+.B ddb
+will then retry just the blocks which had errors, again keeping a list
+of the ones which failed a second time. The process is repeated until the
+whole of the
+.I SOURCE
+has been correctly copied, or the maximum number of passes is reached.
+If there are still uncorrected read errors at the end, the program will
+print a warning to this effect, and if the
+.BR \-o
+option was specified, puts the list of uncorrected blocks in that file.
+Run the program again to keep retrying.
+.TP 0.5i
+.B \-P [\fIINTERVAL\fP:]\fIFILENAME\fP
+Writes a program-readable progress report to \fIFILENAME\fP every
+\fIINTERVAL\fP seconds (default 120); see
+.BR ddb_copy (3)
+for the format
+.TP 0.5i
+.B \-r \fIINTERVAL\fP
+Changes the time between reports to the interval specified (default: 2
+seconds). If \fIINTERVAL\fP is zero, no progress report is provided.
+.TP 0.5i
+.B \-R
+Provides an extra progress report at the end of each pass, showing the
+final number of blocks read, copied, skipped, etc. This report can be
+useful to check that the program is copying the amount of data one expects.
+.TP 0.5i
+.B \-s \fIINTERVAL\fP
+Sleep the specified time interval after each progress report (this sleep
+happens even if the progress report is silenced by using the
+.B \-q
+option).
+.TP 0.5i
+.B -S \fINUMBER\fP
+Specify the number of blocks copied in a single operation; default is
+32, and the value can be between 1 and 1024; larger values decrease the
+effect of network latency on remote devices, but increase memory usage;
+for local devices, lower values work best as they reduce unnecessary buffers.
+.TP 0.5i
+.B -t \fITYPE\fP
+Specify a device \fTYPE\fP for \fIDESTINATION\fP. The default is to
+autodetect the type of existing devices, and to infer a type from the
+device name if writing to something which does not yet exist. When this
+option is provided for existing devices, the program will refuse to run
+if the device is not of the correct type. When running
+.BR ddb
+from a script it is always best to specify this option.
+.TP 0.5i
+.B -T \fITYPE\fP
+Specify a device \fTYPE\fP for \fISOURCE\fP. The default is to autodetect
+the type. When this option is provided, the program will refuse to run if
+the device is not of the correct type. When running
+.BR ddb
+from a script it is always best to specify this option.
+.TP 0.5i
+.B \-v
+Print version number and exit.
+.TP 0.5i
+.B \-x
+Ask that \fIDESTINATION\fP is not present when the program starts and
+therefore will be created by the program ("e\fBx\fPclusive" mode).
+.TP 0.5i
+.B \-w
+Write all blocks to \fIDESTINATION\fP even if they are already present
+and identical to the data which will be written.
+.PP
+.LP
+.SH EXAMPLES
+To create a full backup from a device into a new "sequence":
+.EX
+\fBddb\fP \fB\-x\fP \fP\-t\fP sequence \fIDEVICE\fP /var/backups/\fIDEVICE\fP
+.EE
+.LP
+To add an incremental backup to an existing "sequence":
+.EX
+\fBddb\fP \fP\-t\fP sequence \fIDEVICE\fP /var/backups/\fIDEVICE\fP
+.EE
+.LP
+To restore the device to the state it had the last time it was backed up:
+.EX
+\fBddb\fP \fP\-T\fP sequence /var/backups/\fIDEVICE\fP \fIDEVICE\fP
+.EE
+.LP
+And to restore to the state it had at the time of the most recent backup
+on or before December 1, 2017:
+.EX
+\fBddb\fP \fP\-T\fP sequence /var/backups/\fIDEVICE\fP/2017-12-01 \fIDEVICE\fP
+.EE
+.LP
+To try to rescue data from \fIDEVICE\fP trying 1000 times if that's what
+it takes, and saving the program's state every 2 minutes so that the
+copy can be resumed if it gets interrupted:
+.LP
+.EX
+\fBddb\fP \fB\-p\fP 1000 \fB\-c\fP /var/tmp/ddb-state \fIDEVICE\fP /var/tmp/rescued
+.EE
+.LP
+The above can also be rewritten without saving the state as:
+.LP
+.EX
+\fBddb\fP \fB\-o\fP /var/tmp/ddb-retry \fB\-O\fP \fIDEVICE\fP /var/tmp/rescued
+.EE
+.LP
+If the program is interrupted, the file /var/tmp/ddb-retry will contain
+the list of blocks which still needed to be copied at the end of the
+last pass it completed, so the copy can be resumed with:
+.EX
+\fBddb\fP \fB\-o\fP /var/tmp/ddb-retry \fB\-O\fP \fB\-i\fP /var/tmp/ddb-retry \fIDEVICE\fP /var/tmp/rescued
+.EE
+.LP
+Get a list of blocks in \fIDEVICE\fP which have read errors:
+.EX
+\fBddb\fP \fB\-p\fP 1 \fB\-o\fP /var/tmp/bad-blocks \fIDEVICE\fP
+.EE
+.LP
+Now try to copy these blocks:
+.EX
+\fBddb\fP \fB\-P\fP 1000 \fB\-i\fP /var/tmp/bad-blocks \fIDEVICE\fP /var/tmp/rescued
+.EE
+.LP
+If all these blocks can eventually be read, one can try writing them
+back to the device which will reallocate the blocks to a new area to
+avoid the errors; we use \fB\-w\fP to write unconditionally, and also
+add a delay to give the device a better chance to catch up:
+.EX
+\fBddb\fP \fB\-i\fP /var/tmp/bad-blocks \fB\-w\fP \fB\-s\fP 2 /var/tmp/rescued \fIDEVICE\fP
+.EE
+.SH "EXIT STATUS"
+.B ddb
+exits with a status of zero if all data was successuflly copied from
+.I SOURCE
+to \fIDESTINATION\fP.
+.LP
+An exit status of 1 signals an error in the options provided or a
+problem initialising the program (there will be a message explaining
+what went wrong).
+.LP
+An exit status of 2 signals an error during processing, for example
+an error updating
+.I DESTINATION.
+The program will produce a suitable error message before exiting.
+.LP
+An exit status of 3 signals that some uncorrected read errors still
+exist in
+.I SOURCE
+but the maximum number of passes was reached. A message will say how
+many errors remain and lists the corresponding block numbers.
+.SH ENVIRONMENT
+When starting,
+.B ddb
+reads the following environment variables, if present:
+.TP 0.5i
+.I DDB_CONFIG
+Location of default user configuration file, instead of $HOME/.ddb;
+the \fB\-k\fP option will override this.
+.TP 0.5i
+.I DDB_SYSCONFIG
+Location of default user configuration file, instead of /etc/ddb;
+the \fB\-K\fP option will override this.
+.TP 0.5i
+.I DDB_MODPATH
+Location of loadable modules (plugins), overriding compiled-in
+defaults.
+.PP
+.SH FILES
+.nf
+$HOME/.ddb                   Default user configuration directory
+/etc/ddb                     Default system configuration directory
+.fi
+.SH "SEE ALSO"
+.BR dd (1),
+.BR ddb-info (1),
+.BR ddb-sequence (1),
+.BR ddb_copy (3),
+.BR ddb (5),
+.BR ddb-sequence (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

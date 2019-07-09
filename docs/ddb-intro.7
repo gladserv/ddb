@@ -1,0 +1,202 @@
+.TH DDB-INTRO 7 "3 February 2018" "GLADSERV" "Introduction"
+.SH NAME
+ddb \- distributed device backup (introduction)
+.SH DESCRIPTION
+The purpose of the
+.I ddb
+suite is to efficiently copy data between devices, independently on their
+location on the network.  It is also good for salvaging data from faulty
+devices.
+.LP
+The concept of
+.I device
+is rather more general than what is understood by the operating system or
+by utilities like
+.BR dd (1)
+in the sense that a
+.I device
+could mean a local device as known to the operating system, a remote device
+as known to a different operating system running on a remote system, a
+collection of devices joined together in some way, or finally a program
+running somewhere and communicating with
+.B ddb
+using the documented API.
+.LP
+A \fIdevice\fP is identified by a \fItype\fP and a \fIname\fP; in some
+cases, the \fItype\fP can be omitted, and \fBddb\fP guesses it (autodetection)
+although when using \fBddb\fP from scripts, or using the API it is
+recommended to always specify a \fItype\fP if known, to avoid the
+possibility of autodetection making a wrong guess.
+.LP
+More specifically, a device can be one of:
+.TP 1i
+regular device
+This is a device as the operating system knows it, normally specified as
+a path starting with "/dev/". The type is normally autodetected but can
+be specified as "device", for example to avoid creating a regular file in
+"/dev" when trying to write to a device which does not exist.
+.TP 1i
+image
+This is a regular file containing data from a device; if supported by the
+operating system, it will be a sparse file; normally specified as the full
+path to the file. The type will be normally autodetected, but can be
+specified as "image", for example to refuse writing to a device instead.
+.TP 1i
+image with metadata
+Similar to an image, but instead of using a sparse file it stores information
+about which blocks are present in the file itself. The type is normally
+autodetected for an existing file, but needs to be specified as "meta"
+to create a new file; also, specifying the type for an existing file
+will make sure that an "image" won't be used instead if the file does not
+have a metadata header.  See
+.BR ddb-meta (7)
+for information on how to specify this type of device and the options available.
+.TP 1i
+remote
+This is a device accessed using a generic interface and set up using a
+configuration file; the transport can be a pipe to another program or a
+TCP connection.  The type of each \fIremote\fP device is specified by the
+configuration, which also specifies whether autodetection is permitted.  See
+.BR ddb-remote (7)
+for information about this device and
+.BR ddb (5)
+for information on how to set up this type of device.
+.TP 1i
+module
+This is a device accessed by loading a shared library object and calling
+a function within it; this is set up using a configuration file.  The type
+of each \fImodule\fP device is specified by the configuration, which also
+specifies whether autodetection is permitted.  See
+.BR ddb-module (7)
+for information about this device and
+.BR ddb (5)
+for information on how to set up this type of device.
+.TP 1i
+sequence
+A sequence of images with metadata representing an initial full copy of a
+device and a number of incremental backups; this is normally specified as
+a path to the directory, and the program will read all images contained in
+there. The \fItype\fP of a sequence device is "sequence", although using
+a directory instead of a file will autodetect this type. See
+.BR ddb-sequence (7)
+for more information, and for a description of tools available to manage
+this type of device.
+.TP 1i
+lvm
+Similar to a plain block device, but with some extra knowledge of LVM,
+for example to handle snapshots automatically. The \fItype\fP of this
+device is "lvm", and it can be autodetected when the \fIname\fP is
+a correct device name known to LVM. See
+.BR ddb-lvm (7)
+for more information.
+.TP 1i
+error
+Opens another device and simulates random errors on it. For testing only.
+See
+.BR ddb-error (7)
+for more information.
+.LP
+.SH EXAMPLES
+The manual page for
+.BR ddb (1)
+provides a full description of the utility; in its simplest form, it accepts
+two devices, a source and a destination, and copies data from one to the
+other, so for example:
+.LP
+.EX
+\fBddb\fP /dev/sda1 /var/backup/sda1
+.EE
+.LP
+Creates a disk image of /dev/sda1, while
+.LP
+.EX
+\fBddb\fP /dev/sda1 /var/backup/sda1/
+.EE
+.LP
+Creates a full backup of /dev/sda1 as an image inside the directory
+/var/backup/sda1 using a "sequence" \fItype\fP; if the directory does
+not exist, it will be created, but the slash at the end of the name
+is essential, otherwise the name will be treated as an image;
+a second run of the program:
+.LP
+.EX
+\fBddb\fP /dev/sda1 /var/backup/sda1/
+.EE
+.LP
+will find the full backup in there and add a new image with the differences
+between the device and the full backup, in other words, an incremental backup.
+.LP
+The above can specify a type to make sure that autodetection doesn't
+guess wrongly:
+.LP
+.EX
+\fBddb\fP \fI\-T\fP device \fI\-t\fP sequence /dev/sda1 /var/backup/sda1/
+.EE
+.LP
+To restore from a backup:
+.LP
+.EX
+\fBddb\fP /var/backup/sda1/ /dev/sda1
+.EE
+.LP
+This will use the latest incremental backup; a special syntax (see
+.BR ddb-sequence (7)
+for information) allows to access an earlier backup, for example:
+.LP
+.EX
+\fBddb\fP /var/backup/sda1/2017-12-01 /dev/sda1
+.EE
+.LP
+Restores /dev/sda1 to the latest backup on or before December 1st 2017.
+.LP
+In the above examples, either the source or the destination can be remote,
+by providing appropriate configuration; see
+.BR ddb (5)
+for example of using remote devices.
+.LP
+.SH "SEE ALSO"
+.BR dd (1),
+.BR ddb (1),
+.BR ddb (5),
+.BR ddb-error (7),
+.BR ddb-lvm (7),
+.BR ddb-meta (7),
+.BR ddb-module (7),
+.BR ddb-remote (7),
+.BR ddb-sequence (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

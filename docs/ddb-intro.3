@@ -1,0 +1,89 @@
+.TH DDB-INTRO 3 "3 February 2018" "GLADSERV" "Introduction"
+.SH NAME
+ddb \- distributed device backup (introduction to library)
+.SH SYNOPSIS
+.EX
+#include <ddb.h>
+
+ddb_device_t * dev = ddb_device_open("/dev/sda1", O_RDONLY);
+if (ddb_device_read(dev, buffer, (off_t)0, (size_t)4096)) ... ;
+ddb_device_close(dev);
+.EE
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+The
+.I ddb
+library contains functions to access
+.I ddb
+devices in a uniform way and without knowledge of the low-level details of
+a particular device; it also provides access to these low-level details if
+required.
+.LP
+Programs request access to one or more devices with
+.BR ddb_device_open (3)
+or some variant of it, then perform the requested device access, and
+finally call
+.BR ddb_device_close (3)
+to flush all pending writes (if necessary) and free any resources which
+have been allocated by the library to access that device. Data access is
+provided by a number of read and write functions, see
+.BR ddb_device_read (3)
+.LP
+The
+.BR ddb_device_info (3)
+provides generic information about the device, in a variety of formats;
+each device may provide more specific information using a different function
+which is available for that type of device only.
+.LP
+Most of the operation of
+.I ddb
+relies on block lists, for example the list of blocks which still need to
+be copied, or the list of blocks which could not be copied because of errors;
+the library provides a set of functions to store such lists efficiently
+in memory: see
+.BR ddb_blocklist_new (3)
+and related functions for information.
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb_blocklist_new (3),
+.BR ddb_device_info (3),
+.BR ddb_device_open (3),
+.BR ddb_device_read (3)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

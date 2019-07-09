@@ -1,0 +1,132 @@
+.TH DDB-SEQUENCE 7 "3 February 2018" "GLADSERV" "Devices"
+.SH NAME
+ddb\-sequence \- incremental device images
+.SH DESCRIPTION
+A \fBddb\-sequence\fP is a directory with a special structure, containing
+full and incremental images of a device as well as some extra information
+for use by backup programs.
+.LP
+To use this type of device as a destination, just provide a directory name
+to \fBddb\fP; if the directory is empty, the program will automatically set
+up the required structure and take an initial full device image; if the
+directory is already set up, the program will take an incremental image
+containing just the differences between the contents of the device at the
+time of the last run, and the current contents. If the special file name
+\fIlast\fP is used inside this directory, this will overwrite the last
+incremental image, or if none is present, the full image: this can be
+used to continue a copy which was interrupted.
+.LP
+To use this type of device as a source, provide the directory name optionally
+followed by a timestamp; this indicates the last backup taken at or before the
+time specified (or the last backup found, if no timestamp); a timestamp has
+the form:
+.LP
+.EX
+    \fByear\fP\-\fBmonth\fP\-\fBday\fP:\fBhour\fP:\fBminute\fP:\fBsecond\fP
+.EE
+.LP
+which can be truncated after any element to mean "the end of", so for example:
+.LP
+.EX
+    \fBddb\fP /var/backup/sda1/2017-12-07:17 /dev/sda1
+.EE
+.LP
+would restore from the last backup before 6pm on December 7, 2017 (the
+specification ends with the hour, 17, and that means "up to the end of 5pm");
+.LP
+.EX
+    \fBddb\fP /var/backup/sda1/2017-12-07 /dev/sda1
+.EE
+.LP
+would restore from the last backup taken on December 7th, or if no backup
+was taken on that date the most recent before then; and
+.LP
+.EX
+    \fBddb\fP /var/backup/sda1/2016 /dev/sda1
+.EE
+.LP
+would find the last backup of year 2016 (assuming at least one backup was
+taken during the year, if not it'll find the most recent backup from a
+previous year).
+.LP
+It is possible to specify an explicit image type to \fBddb\fP using the
+\fI\-t\fP option (for a destination) or \fI\-T\fP (for a source); in
+this case, the type must be \fBsequence\fP. This is only necessary if
+for some reason autodetecting fails; however when calling \fBddb\fP
+from a script or some automated task it's always best to specify all
+types to disable autodetection.
+.LP
+The
+.BR ddb-info (1)
+program provides generic information on any
+.I device
+known to
+.B ddb
+and will show the number of backups present in a sequence, and their dates;
+more detailed information, as well as options to manage a sequence, are
+provided by
+.BR ddb-sequence (1)
+which can, for example, collapse together consecutive backups into a single
+image to keep the directory from growing in size.
+.LP
+.SH ACTIONS
+A sequence supports the following actions using
+.BR ddb_action(3)
+.TP 0.5i
+checksum
+Create or recreate a checksum cache for the sequence; this will
+be used when reading blocks with \fIDDB_READ_CHECKSUM\fP and
+will be updated by writes; this action is the same as running
+.BR ddb-sequence (1)
+with the \fI\-c\fP option.
+.TP 0.5i
+join
+Updates the full backup with the oldest incremental image, and
+if successful deletes that incremental image; this is the same
+as running
+.BR ddb-sequence (1)
+with the \fI\-j\fP option.
+.PP
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-info (1),
+.BR ddb-sequence (1),
+.BR ddb_action (3),
+.BR ddb-intro (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

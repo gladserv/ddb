@@ -1,0 +1,9 @@
+match any =^test-remote$ ^.*$ name=$0
+pipe $name meta ../src/ddb-daemon
+
+match ro =^test-local$ ^.*$ name=$0
+open $name meta
+
+match ro =^test-tcp$ ^([1-9][0-9]*):(.*)$ port=$1 name=$2
+connect $name meta localhost $port
+

@@ -1,0 +1,127 @@
+.TH DDB-INFO 1 "17 February 2018" "GLADSERV" "LOCAL USER COMMANDS"
+.SH NAME
+ddb-info \- generic device information
+.SH SYNOPSIS
+.EX
+\fBddb-info\fP [options]... \fIDEVICE\fP...
+.EE
+.SH DESCRIPTION
+The
+.B ddb-info
+program reads all specified \fIDEVICE\fPs and prints some information
+about them; this information includes total size, device type, time of
+last modification.
+.LP
+The following options are available:
+.LP
+.TP 0.5i
+.B \-b
+Prints the list of blocks present in each \fIDEVICE\fP, and any other
+"extra" information the device may contain.
+.TP 0.5i
+.B \-B \fIBLOCK_SIZE\fP
+Specifies a block size for devices which don't provide this information;
+this is necessary to open plain images and real block devices, but is
+normally omitted for other types of device.
+.TP 0.5i
+.B \-h
+Print an usage message with some of the information in this manual page;
+then exit the program.
+.TP 0.5i
+.B \-k \fIDIRECTORY\fP
+Replaces the default user configuration directory with \fIDIRECTORY\fP;
+if this option is repeated, the program will search all the directories
+specified (but not the default, which can be added again if desired
+by specifying this option one more time). If the \fIDIRECTORY\fP is not
+absolute it will be relative to $HOME. To completely remove the user
+configuration directories specify a single \fB\-k\-\fP.
+.TP 0.5i
+.B \-K \fIDIRECTORY\fP
+Replaces the default system configuration directory with \fIDIRECTORY\fP;
+if this option is repeated, the program will search all the directories
+specified (but not the default, which can be added again if desired
+by specifying this option one more time). To completely remove the
+system configuration directories specify a single \fB\-K\-\fP.
+.TP 0.5i
+.B \-l
+Print the program's licence on standard output and exit.
+.TP 0.5i
+.B \-t \fITYPE\fP
+Specifies the \fITYPE\fP of the \fIDEVICE\fPs, disabling autodetection.
+.TP 0.5i
+.B \-v
+Print version number and exit.
+.PP
+.LP
+.SH "EXIT STATUS"
+.B ddb-info
+exits with a status of zero on success.
+.LP
+An exit status of 1 signals an error in the options provided or a
+problem initialising the program (there will be a message explaining
+what went wrong).
+.LP
+An exit status of 2 signals an error during processing, for example
+an error opening one of the \fIDEVICE\fPs for reading.
+.LP
+.SH ENVIRONMENT
+When starting,
+.B ddb-daemon
+reads the following environment variables, if present:
+.TP 0.5i
+.I DDB_CONFIG
+Location of default user configuration file, instead of $HOME/.ddb;
+the \fB\-k\fP option will override this.
+.TP 0.5i
+.I DDB_SYSCONFIG
+Location of default user configuration file, instead of /etc/ddb;
+the \fB\-K\fP option will override this.
+.TP 0.5i
+.I DDB_MODPATH
+Location of loadable modules (plugins), overriding compiled-in
+defaults.
+.PP
+.SH FILES
+.nf
+$HOME/.ddb                   Default user configuration directory
+/etc/ddb                     Default system configuration directory
+.fi
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb (5)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

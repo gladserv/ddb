@@ -1,0 +1,109 @@
+lib/ddb-dir.c
+	finish the packed sequence (save metadata)
+	add copy (pack/unpack) action
+
+docs/ddb-packed.7
+
+add copy/pack/unpack to ddb-sequence and test program for them
+
+bmbackup --setup --packed
+	like --setup but stores the data in a packed sequence
+
+bmbackup --export [--packed] DIRECTORY SELECTION
+	copies selected backups to another directory
+
+bmbackup --import DIRECTORY [SELECTION]
+	copies all backups from DIRECTORY (matching SELECTION if provided)
+	to the normal data directory; these backups must not already exist
+
+bmbackup --delete BACKUP_NAME
+	deletes backup and all data associated
+
+bmbackup --rename OLD_NAME NEW_NAME
+	renames backup
+
+Test LVM and LVM+snapshot; these require to be configured to know what
+volume group etc to use for testing, so can't be in "make test".
+
+bmbackup
+	option to resume previous full/incremental backup
+	option to resume previous restore without --overwrite
+
+ddb.1	document -d "device report"
+
+ddb, ddb.1
+	add -e "allow extending" to extend a device if the source device
+	is larger than the destination; one would use that after extending
+	a source device for example.  Might also add -E "allow extending
+	or shrinking" or might not; this requires adding a "resize" option
+	to ddb_device_open with values 0 (no), 1 (extend), 2 (any resize)
+	to resize the device if possible and corresponding options to
+	all devices
+
+ddb.5	document the various part of a configuration: "block", "prepare",
+	"action", "close" and "retry"
+
+ddb-copy
+	allow the copy to use a multiple of the base block size to do the
+	actual copy for better efficiency when copying a lot of data;
+	this probably requires changes in the devices and some may not allow
+	this (this would require adding a "-B" option to ddb to specify the
+	multiple, default 1)
+
+ddb-dir	opening with a timestamp before the date of full backup still
+	reads the full backup instead of returning ENOENT
+
+ddb-lvm	allow to reopen an existing snapshot to continue a previous copy;
+	likewise do not delete a snapshot when exiting with error
+
+ddb-lvm	allow snapshot size to be specified as x% (of the volume size)
+
+ddb-lvm	add support for long-lived snapshot managed by device actions:
+	* newsnap: create a new snapshot
+	* renewsnap: recreate snapshot saving list of blocks modified
+	* rmsnap: delete snapshot
+	and also add some syntax to specify using an existing snapshot
+	to decide what to copy (like using "readsnap"), for example
+	volume_group/volume_name/snapshot_name
+
+ddb-image
+	add the previous "btree" code at least in the summary cache, or
+	else store the summary cache in blocks to speed up searching
+
+ddb-remote
+	cope with other network errors after a command has started
+
+ddb-config & ddb-remote
+	allow a "load module function arguments" to run an initialisation
+	function when loading a module, while just "load modules" does
+	not run anything.
+
+ddb-config & ddb-remote
+	add a "unload module function arguments" to run a cleanup
+	function when unloading a module; to just unload without running
+	anything, omit the "unload".
+
+ddb-remote & ddb-plugin
+	"report" on remote action is not implemented; would need a
+	mechanism to send the stuff back, maybe a special packet or
+	use print_request_t - signalling termination with a packet
+	of negative length which contains the action result code
+
+test/copy
+	write new program to test the copy function, including checksums,
+	input list, output list (per-pass and final), checkpoints
+
+test/module
+	write new program to test device access via a module
+
+test/remote
+	test a remote device action
+	test a "local" device action
+	test the "prepare" and "close" configuration actions
+	test the "retry" mechanism
+	test a larger read/write than 1 block
+
+test/sequence
+	add a test for "checksum" file
+	add tests for packed sequences
+

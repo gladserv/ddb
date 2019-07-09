@@ -1,0 +1,215 @@
+.TH DDB_DEVICE_OPEN 3 "3 February 2018" "GLADSERV" "Device access"
+.SH NAME
+ddb_device_open, ddb_device_close \- distributed device backup device access
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <ddb.h>
+.sp
+.BI "int ddb_device_configuration(int " "flags" ", const char * " "path" );
+.sp
+.BI "ddb_device_t * ddb_device_open(const char * " "name" ,
+.BI "               const char * " "type" ", size_t " "block_size" ,
+.BI "               int " "flags" ", off_t " "total_size" );
+.sp
+.BI "ddb_device_t * ddb_device_open_multi(size_t " "extra" ", int " "ndevs" ,
+.BI "               ddb_device_t * " "devs" "[" "ndevs" "], int " "flags" );
+.sp
+.BI "int ddb_device_flush(ddb_device_t * " "dev" );
+.sp
+.BI "int ddb_device_close(ddb_device_t * " "dev" );
+.fi
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+The
+.BR ddb_device_open()
+function uses the device
+.I name
+provided to select an appropriate low-level set of functions to access
+a device, and then tries to open the device and returns a pointer for
+use in subsequent device access functions; the
+.I flags
+argument has the same meaning as for the
+.BR open(2)
+call, and controls the type of access required, except that a new
+device will not be created by this call. The device will be
+considered as made up of blocks, each of size
+.I block_size
+and all data transfer operations will be in units of one block. If
+the device already exists and provides block size information, this
+argument can be provided as 0 to accept the existing size, or as a
+nonzero value to check for block size consistency. When creating a
+new device (\fIflags\fP includes \fBO_CREAT\fP) the caller must
+specify a non-zero \fItotal_size\fP (amount of data which will be
+stored on the device) and can specify a non NULL \fItype\fP to
+indicate the desired type to create (NULL to accept defaults);
+when opening an existing device these arguments can be specified
+to check for consisytency, or omitted (\fItotal_size\fP 0 and
+\fItype\fP NULL) to accept what is found in the device.
+.LP
+The program uses a set of configuration files to parse a device name;
+there is a compiled-in list, and the
+.BR ddb_device_configuration()
+function can be used to add to this list, or even to remove
+compiled-in defaults. If the
+.I path
+argument is not null, it will be added to the list selected by the
+.I flags
+parameter, which can be one of:
+.TP
+DDB_CONFIG_SYSTEM
+add \fIpath\fP to the list of system configuration directories.
+.TP
+DDB_CONFIG_USER
+add \fIpath\fP to the list of user configuration directories.
+.PP
+Additionally, flags can be bitwise or-ed with these value;
+currently there is only one flag:
+.TP
+DDB_CONFIG_CLEAR
+clear the list before adding \fIpath\fP. This removes compiled-in defaults
+as well as any other paths added by previous calls. If \fIpath\fP is null,
+leaves the list empty.
+.LP
+The
+.BR ddb_device_close()
+function completes any pending I/O operations, then deallocates any
+structures which have been allocated during device access and closes
+any underlying file descriptors; the
+.I dev
+argument will contain invalid data after this call.
+.LP
+The
+.BR ddb_device_flush()
+function completes any pending I/O operations, but leaves the device
+open for further operations.
+.LP
+The
+.BR ddb_device_open_multi()
+function opens a more complex device, referring to
+.I ndevs
+devices which have already been opened by the caller and passed in the
+.I devs
+array; the underlying devices and the contents of the
+.I devs
+array become invalid after a successful call to this function, and the
+caller must not access them directly. The memory allocated includes
+.I extra
+bytes which will can be used by the caller. Some devices
+will convert a call to
+.BR ddb_device_open()
+to an internal call to
+.BR ddb_device_open_multi()
+as appropriate.
+.LP
+.SH "RETURN VALUE"
+Upon successful completion
+.BR ddb_device_open()
+and
+.BR ddb_device_open_multi()
+return a pointer to a device structure, otherwise NULL is returned and
+.I errno
+is set appropriately.
+.LP
+The
+.BR ddb_device_flush(),
+.BR ddb_device_close()
+and
+.BR ddb_device_configuration()
+functions return 0 on success and -1 on error, in which case they set
+.I errno
+to indicate what went wrong.
+.LP
+.SH ERRORS
+In addition to the errors produced by
+.BR open(2)
+and
+.BR malloc(3),
+the
+.BR ddb_device_open()
+and
+.BR ddb_device_open_multi()
+can also produce:
+.TP
+.B EINVAL
+The
+.I name
+or
+.I type
+argument cannot be parsed to determine a low-level device type, or
+the
+.I blocks_size
+argument is invalid (0 when the block size cannot be determined from the
+device, or nonzero but incompatible with the device).
+.TP
+.B EBADF
+One of the elements of
+.I devs
+was not a valid device, or the
+.I flags
+argument was incompatible between the underlying devices.
+.PP
+.LP
+The
+.BR ddb_device_configuration()
+function can return any of the errors produced by
+.BR malloc().
+.LP
+The
+.BR ddb_device_close()
+and
+.BR ddb_device_flush()
+functions can return any of the errors produced by
+.BR write(2)
+and
+.BR close(2)
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb (5),
+.BR ddb-intro (3),
+.BR ddb_device_read (3),
+.BR ddb-intro (7),
+.BR ddb-image-metadata (7),
+.BR ddb-lvm (7),
+.BR ddb-pipe (7),
+.BR ddb-sequence (7)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

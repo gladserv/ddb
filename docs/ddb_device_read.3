@@ -1,0 +1,190 @@
+.TH DDB_DEVICE_READ 3 "3 February 2018" "GLADSERV" "Device access"
+.SH NAME
+ddb_device_read, ddb_device_write \- distributed device backup device access
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <ddb.h>
+.sp
+.BI "int ddb_device_read(ddb_device_t * " "dev" ", off_t " "block" ,
+.BI "                      void * " "buffer" ", int " "flags" );
+.sp
+.BI "int ddb_device_read_multi(ddb_device_t * " "dev" ", int " "nblocks" ,
+.BI "                      ddb_block_t * " "blocks" "[" "nblocks" "] ", int " "flags" );
+.sp
+.BI "int ddb_device_write(ddb_device_t * " "dev" ", off_t " "block" ,
+.BI "                      const void * " "buffer" );
+.sp
+.BI "int ddb_device_write_multi(ddb_device_t * " "dev" ", int " "nblocks" ,
+.BI "                      ddb_block_t * " "blocks" "[" "nblocks" "] " );
+.fi
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+The
+.BR ddb_device_read()
+function reads a block of data (of length specified by the device's
+\fI block_size\fP but see NOTES below), starting at block offset
+.I block
+(which corresponds to file offset \fIblock\fP*\fIblock_size\fP)
+and updates
+.I buffer
+which must be large enough for the data requested.  The
+.BR ddb_device_write
+is the opposite, writing data from the
+.I buffer
+to the device. The \fIflags\fP argument controls what data the functions
+actually reads, and is one of:
+.TP 0.5i
+DDB_READ_BLOCK
+Read a a full block
+.TP 0.5i
+DDB_READ_CHECKSUM
+Returns just a checksum of the block's data in \fIbuffer\fP
+.PP
+Moreover, the following can be bitwise OR-ed into \fIflags\fP
+.TP 0.5i
+DDB_READ_ZEROFILL
+If there is a short read, fill the remaining buffer with zeroes
+instead of returning an error
+.TP 0.5i
+DDB_READ_MAYBE
+The caller pre-fills the buffers with checksums of the data,
+and the device will compare it with the checksum of its own
+data; if they are equal, the result is not returned but instead
+the \fIresult\fP fiels will contain a negative number;
+this flag is ignored if it is not useful, for example for
+devices which do not need to send data over the network.
+.PP
+.LP
+The
+.BR ddb_device_read_multi()
+and
+.BR ddb_device_write_multi()
+functions correspond to a sequence of
+.I nblocks
+calls to
+.BR ddb_device_read()
+and
+.BR ddb_device_write()
+respectively, using information in the
+.I blocks
+argument, which is an array of structures:
+.LP
+.nf
+typedef struct ddb_block_s {
+    off_t         block;
+    int           result;
+    int           error;
+    void          * buffer;
+} ddb_block_t;
+.fi
+.LP
+The \fIblock\fP and \fIbuffer\fP fields correspond to the arguments of the
+same name to the
+.BR ddb_device_read()
+and
+.BR ddb_device_write()
+functions; the \fIresult\fP field will be set by the function to a
+positive value if the operation succeeded, and to a negative value
+if it failed, in which case the \fIerror\fP field will also be set to
+the appropriate code. For some types of devices, particularly remote
+devices, these functions can be more efficient than a sequence of calls.
+For
+.BR ddb_device_read_multi(),
+if \fIflags\fP included \fIDDB_READ_MAYBE\fP and a block was skipped
+because of that, the \fIresult\fP will be set to 0 and the buffer will
+not be updated.
+.LP
+.SH "RETURN VALUE"
+The "single block" functions,
+.BR ddb_device_read()
+and
+.BR ddb_device_write()
+return 0 and -1 on failure, in which case they set
+.I errno
+to an approppriate value. If \fIflags\fP included \fIDDB_READ_MAYBE\fP
+for
+.BR ddb_device_read()
+and the read was skipped because the checksum matched, this function
+will return 1 without updating the buffer.
+.LP
+The "multiple block" functions,
+.BR ddb_device_read_multi()
+and
+.BR ddb_device_write_multi(),
+return the number of blocks successuflly read or written, which can be
+any number between 0 and
+.I nblocks
+and additionally set the
+.I result
+field of each element of the
+.I blocks
+array to indicate success of each single read or write; and in
+case of failure also set the
+.I error
+field to the \fIerrno\fP code resulting from each block operation.
+.SH ERRORS
+These functions can return any of the errors produced by
+.BR read(2)
+or
+.BR write(2)
+as well as other errors produced by functions like
+.BR send(2)
+or
+.BR recv(2)
+for some types of devices.
+.LP
+.SH NOTES
+The last block in a file is handled differently if the file's size is not
+an exact multiple of the \fIblock_size\fP.  Read operations will use the
+amount of data actually present and fill the remaining with zeroes (this
+is like specifying \fBDDB_READ_ZEROFILL\fP in \fIflags\fP but only for
+the special case when the amount read is the size of the last block);
+write operations will write a shorter block to avoid extending
+the file (or writing past the end of a block device).  This special handling
+is normally unnecessary for block devices and images but could happen when
+using a regular file with no special structure.
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-intro (3),
+.BR ddb_device_open (3)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

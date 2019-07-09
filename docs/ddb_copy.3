@@ -1,0 +1,233 @@
+.TH DDB_COPY 3 "30 January 2018" "GLADSERV" "Device access"
+.SH NAME
+ddb_copy \- copy data between ddb devices
+.SH SYNOPSIS
+.nf
+.B #include <stdio.h>
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <ddb.h>
+.sp
+.BI "int ddb_copy_block(int " "block" );
+.sp
+.BI "int ddb_copy(ddb_copy_t * " "W" );
+.sp
+.LP
+Link with \fI\-lddb\fP
+.SH DESCRIPTION
+The
+.BR ddb_copy()
+function takes a structure describing two devices and copies data from
+the source to destination.  The structure contains the following fields:
+.LP
+.nf
+typedef struct {
+    const char * src_name;
+    ddb_device_t * src;
+    const char * dst_name;
+    ddb_device_t * dst;
+    int write_dst;
+    off_t total_size;
+    off_t total_blocks;
+    int block_size;
+    const char * input_list;
+    int max_passes;
+    const char * checkpoint_file;
+    int checkpoint_interval;
+    void (*progress_function)(void *, const char *);
+    void * progress_arg;
+    int progress_interval;
+    int progress_sleep;
+    int extra_report;
+    const char * machine_progress_file;
+    int machine_progress_interval;
+    const char * output_list;
+    int output_each_pass;
+    int flush_interval;
+    int use_checksums;
+    int skip_identical;
+    const char * copied_list;
+} ddb_copy_t;
+.fi
+.LP
+The fields contain the following information:
+.TP 0.5i
+src_name
+The name of the source, as printed in messages
+.TP 0.5i
+src
+A device opened to the source (preferably read-only)
+.TP 0.5i
+dst_name
+The name of the destination, as printed in messages
+.TP 0.5i
+dst
+A device opened to the source (read-write if \fIwrite_dst\fP is
+nonzero, otherwise preferably read-only)
+.TP 0.5i
+write_dst
+0 indicates that no data is actually copied, but the source and
+destination are compared to determine what would be copied; 1
+means to actually copy the data
+.TP 0.5i
+total_size
+The total size of the source (and of the destination),
+mostly used for consistency checks
+.TP 0.5i
+total_blocks
+The total number of blocks in the devices,
+mostly used for consistency checks
+.TP 0.5i
+block_size
+The block size to use for the copy
+.TP 0.5i
+input_list
+The name of a file with a list of blocks to copy; if NULL, all
+blocks in the source will be copied (using
+.BR ddb_device_copy_blocks(3)
+which can still specify that some blocks do not need to be copied).
+.TP 0.5i
+max_passes
+The function records read and write errors and will retry any
+blocks which had an error; the number of retries is the value of
+this field minus 1, i.e. 1 pass is the data copy, 2 passes allow
+for retrying once after errors, etc.
+.TP 0.5i
+checkpoint_file
+If not NULL, this is the name of a file where the function will
+write its internal state periodically; if this file exists at
+the start, the function will use it to resume the copy.
+.TP 0.5i
+checkpoint_interval
+The number of seconds between checkpoints, if \fIcheckpoint_file\fP
+is not NULL
+.TP 0.5i
+progress_function
+A function which will be called with progress messages; if NULL,
+these messages are not produced
+.TP 0.5i
+progress_interval
+The number of seconds between progress reports; 0 disables these reports
+(but the program will still produce a report at start and end of each
+pass)
+.TP 0.5i
+progress_sleep
+If positive, a number of seconds to sleep after each progress report;
+this is ignored if \fIprogress_interval\fP is 0
+.TP 0.5i
+extra_report
+If nonzero, an extra progress report will be produced just before the
+"end pass" message, showing more details on what the pass has done
+(blocks copied, number of errors, etc); this is ignored if
+\fIprogress_file\fP is NULL, but the extra report is still produced
+if \fIprogress_interval\fP is 0 and \fIprogress_file\fP is not NULL
+.TP 0.5i
+machine_progress_file
+The name of a file where progress messages are sent in a format which
+is designed to be parsed by a program; if NULL, these progress
+message are not produced; the file will contain a line with 9
+values separated by spaces: timestamp, total number of blocks to
+copy, number of blocks read, number of read errors, number of
+blocks written, number of blocks skipped, number of write errors,
+block size and number of current pass
+.TP 0.5i
+machine_progress_interval
+The number of seconds between program-readable progress reports;
+0 disables these reports (same as setting \fImachine_progress_file\fP
+to NULL)
+.TP 0.5i
+output_list
+If not NULL, this is the name of a file where the function will write
+the list of blocks which could not be copied (because of errors which
+persisted after the maximum number of passes)
+.TP 0.5i
+output_each_pass
+If nonzero, and \fIoutput_list\fP is not NULL, produce the list at
+the end of each pass; if this is 0, only produce the list after
+the last pass
+.TP 0.5i
+flush_interval
+Number of seconds between data flushes to destination (by calling
+.BR ddb_device_flush(3)
+every \fIflush_interval\fP seconds); ignored if \fIwrite_dst\fP is 0
+.TP 0.5i
+use_checksums
+If nonzero, checksum each block on source and destination and
+only copy data if the checksums differ; this can save time if
+the two devices are on different places as transmitting checksums
+over the network will be much faster than transmitting full data;
+ignored if \fIskip_identical\fP is 0 and \fIwrite_dst\fP is nonzero
+.TP 0.5i
+skip_identical
+Omit the write if the data to be written to destination is already
+present; this is ignored if \fIwrite_dst\fP is zero.
+.TP 0.5i
+copied_list
+If not NULL it contains a filename where the function will write the
+full list of blocks which were copied to this file after the last pass
+(the list will contain blocks copied on any pass)
+.PP
+.LP
+The
+.BR ddb_copy_block()
+function sets the copy block to \fIblock\fP if possible, and returns
+the resulting copy block; once a device has been opened, it is no longer
+possible to change the copy block, but it's still possible to obtain the
+current value from this function; a negative or zero value is invalid
+for \fIblock\fP, so that can be used to check the value without changing it.
+Increasing the copy block reduces the effect of network latency when
+copying to or from a remote device, but increases the memory usage.
+.LP
+.SH "RETURN VALUE"
+The
+.BR ddb_copy()
+function returns 1 if all data was copied, 0 if some data could not
+be copied due to read or write errors, and -1 if a fatal error occurred
+which interrupted processing, in which case it will print a message
+to standard error.
+.LP
+The
+.BR ddb_copy_block()
+returns the copy block in use.
+.LP
+.SH "SEE ALSO"
+.BR ddb (1),
+.BR ddb-intro (3),
+.BR ddb_device_copy_blocks (3),
+.BR ddb_device_flush (3)
+.SH BUGS
+None that we know of. If we do become aware of a bug, we'll work
+to fix it.
+.SH COPYRIGHT
+Copyright (c) 2018 Claudio Calvelli <ddb@gladserv.com>
+.LP
+All rights reserved.
+.LP
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+.TP 0.5i
+1.
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+.TP 0.5i
+2.
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP 0.5i
+3.
+If the program is modified in any way, a line must be added to the
+above copyright notice to state that such modification has occurred.
+.LP
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

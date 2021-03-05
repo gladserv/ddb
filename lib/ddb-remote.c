@@ -1523,7 +1523,7 @@ int ddb_action_remote(ddb_remote_t * descr, const char * action,
     errno = EINVAL;
     while (connect) {
 	FILE * F_in, * F_out;
-	pid_t pid;
+	pid_t pid = -1;
 	int ok;
 	switch (connect->type) {
 	    case ddb_connect_open:
